@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<pluggable type="plugin">
+	<name>jLaTeX</name>
+	<version>0.3a</version>
+	<url>http://www.justinjstark.com/</url>
+	<author url="http://www.justinjstark.com">Justin J Stark</author>
+	<license url=""></license>
+	<description><![CDATA[Render LaTeX in posts and comments using local tools.]]></description>
+	<copyright></copyright>
+</pluggable>

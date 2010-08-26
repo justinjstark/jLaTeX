@@ -1,0 +1,14 @@
+img.jLaTeX
+{
+	border: none;
+	padding: 2px;
+	margin: 0px;
+	background-color: #fff;
+	vertical-align: bottom;
+	margin-bottom: 3px;
+}
+
+div.centered
+{
+	text-align: center;
+}
