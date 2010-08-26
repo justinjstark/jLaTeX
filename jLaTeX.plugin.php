@@ -410,16 +410,13 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 					
 					$latexsettings_fieldset = $ui->append( 'fieldset', 'latexsettings', _t( 'LaTeX Settings' ) );
 						$latexsettings_fieldset->append( 'static', 'latextemplate_static', _t( 'You can place anything you want in the following template.  %s% gets replaced by the LaTeX code you enter between appropriate tags in posts and comments.' ) );
-						$latextemplate = $latexsettings_fieldset->append( 'textarea', 'latextemplate', 'option:jLaTeX__template', _t( 'Template' ) );
-						$latextextwidth = $latexsettings_fieldset->append( 'text', 'textwidth', 'option:jLaTeX_textwidth', _t( 'Text Width (in inches)' ) );
+						$latexsettings_fieldset->append( 'textarea', 'latextemplate', 'option:jLaTeX__template', _t( 'Template' ) );
+						$latexsettings_fieldset->append( 'checkbox', 'incomments', 'option:jLaTeX__incomments', _t( 'Render LaTeX in comments' ) );
 
 					$imagesettings_fieldset = $ui->append( 'fieldset', 'imagesettings', _t( 'Image Settings' ) );
 						$imagesettings_fieldset->append( 'text', 'imagedpi', 'option:jLaTeX__imagedpi', _t( 'DPI' ) );
 						$imagesettings_fieldset->append( 'text', 'imagewidth', 'option:jLaTeX__imagewidth', _t( 'Maximum Image Width (in pixels)' ) );
 						$imagesettings_fieldset->append( 'static', 'imagewidth_static', _t( 'jLaTeX will calculate the maximum image width in inches and automatically set the LaTeX document text-width to this value. This way the text is not wider than the container width.' ) );
-						
-					$othersettings_fieldset = $ui->append( 'fieldset', 'othersettings', _t( 'Other Settings' ) );
-						$othersettings_fieldset->append( 'checkbox', 'incomments', 'option:jLaTeX__incomments', _t( 'Render LaTeX in comments' ) );
 										
 					$ui->append( 'submit', 'save', 'Save' );
 					
