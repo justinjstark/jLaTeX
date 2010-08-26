@@ -382,17 +382,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	/************************** Admin Stuff **************************/
 
 
-	/**
-	 * function help
-	 * Returns a quick bit of help
-	 * @return string The help string
-	*/
-	public function help()		// Shows a text with basic usage instructions
-	{
-		$help = '<p>Currently, the only available tags are \( \) as in \( x^2 \).  It works in both posts and comments.  This will be extended later.</p>';
-	}
-	
-
 	public function filter_plugin_config( $actions, $plugin_id )
 	{
 		if ( $plugin_id == $this->plugin_id() ) {

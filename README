@@ -14,3 +14,9 @@ To install:
 	(2) Drop the plugin files into user/plugins/jLaTeX/
 	(3) Activate the plugin in the Habari admin and configure 
 	(4) Enjoy!
+	
+Default supported tags:
+	    \(	     \)	Inline math mode
+	    \[	     \]	Centered math mode
+	 [tex]	 [/tex]	Inline nonmath mode
+	[ctex]	[/ctex]	Centered nonmath mode
