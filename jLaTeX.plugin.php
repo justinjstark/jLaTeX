@@ -2,6 +2,7 @@
 /*
 	TODO:
 		@ Strip out potentially malicious LaTeX commands. (This definitely needs implemented before any sort of post-alpha release.)
+		@ 
 		@ Make a preview comment plugin
 */
 
@@ -45,6 +46,7 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 			$template .= "\\usepackage{verbatim}\n";
 			$template .= "\\pagestyle{empty}\n\n";
 			$template .= "\\newcommand{\\charf}{\\raisebox{\\depth}{\\(\\chi\\)}}\n\n";
+			$template .= "\\setlength{\\parindent}{0in}\n\n";
 			$template .= "\\begin{document}\n";
 			$template .= "%s\n";
 			$template .= "\\end{document}";
@@ -69,46 +71,58 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 
 
 	/************************** LaTeX Stuff **************************/
-	
-	
+
+
 	/**
-	 * function do_command
-	 * Executes a command in a given directory and checks for an error
+	 * function replace_tags
+	 * Loops through the dictionary and passes matches to another function.
 	 * @param string $command The command to execute
 	 * @param string $working_dir The directory in which to work
 	 * @return boolean true if the command succeded, false if not
 	*/
-	private function do_command( $command, $working_dir = null )
+	public function replace_tags( $content )
 	{
-		//Change to the working directory
-		$current_dir = getcwd();
-		if ( $working_dir ) chdir( $working_dir );
-		
-		//Execute the command
-		exec( $command, $output, $status_code );
-		
-		//If there is an error, return false
-		if ( $status_code )
+		//Replace for each definition
+		foreach ( $this->dict as $record )
 		{
-			chdir( $current_dir );
-			return false;
+
+			//Send additional data from the dictionary to the function.
+			$this->passthrough_args['texcontainer'] = $record[1];
+			$this->passthrough_args['outputcontainer'] = $record[2];
+			
+			$content = preg_replace_callback ( '#' . $record[0] . '#si', array( $this, 'passthrough' ), $content );
 		}
-		unset( $output );
 		
-		//Return to the previous directory
-		chdir( $current_dir );
+		return $content;
 	}
 	
 	
 	/**
-	 * function error_format
-	 * Formats the texcode if it is not renderable
-	 * @param string $texcode The LaTeX code
-	 * @return string The formatted html
+	 * function insert_image
+	 * Insert the image tag for the given image.  Make sure it is present first.
+	 * @param string $texcode The TeX code
+	 * @param integer $post_id The Post ID
+	 * @param integer $commend_id The Comment ID if a comment
+	 * @return string The html image tag
 	*/
-	private function error_format( $texcode )
+	private function insert_image( $texcode, $post_id, $comment_id = null, $texcontainer = '%s', $outputcontainer = '%s' )
 	{
-		return '<span style="font-family: \'Courier New\'; background-color: #aa3333; color: yellow; padding: 1px; font-weight: bold;">' . trim( $texcode ) . '</span>';
+		$texcode = sprintf( $texcontainer, $texcode );
+		$group = 'jLaTeX-' . $post_id;
+		$name = $comment_id . '-' . md5($texcode);
+		
+		//If the image is not in cache, render it
+		if ( !RenderCache::has( array( $group, $name ) ) ) {
+			if ( $this->render_image( $texcode, $post_id, $comment_id ) === false ) {
+				return $this->error_format( $texcode );
+			}
+		}
+				
+		//Get the url of the image
+		$file_url = RenderCache::get_url( array( $group, $name ) );
+		
+		//Return the image tag
+		return sprintf( $outputcontainer, "<img src=\"$file_url\" alt=\"" . trim($texcode) . "\" class=\"jLaTeX\">" );
 	}
 	
 	
@@ -169,34 +183,46 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		$name = $comment_id . '-' . md5($texcode);
 		RenderCache::put( array( $group, $name ), $file, 60*60*24*7, true );
 	}
+
+	
+	/**
+	 * function do_command
+	 * Executes a command in a given directory and checks for an error
+	 * @param string $command The command to execute
+	 * @param string $working_dir The directory in which to work
+	 * @return boolean true if the command succeded, false if not
+	*/
+	private function do_command( $command, $working_dir = null )
+	{
+		//Change to the working directory
+		$current_dir = getcwd();
+		if ( $working_dir ) chdir( $working_dir );
+		
+		//Execute the command
+		exec( $command, $output, $status_code );
+		
+		//If there is an error, return false
+		if ( $status_code )
+		{
+			chdir( $current_dir );
+			return false;
+		}
+		unset( $output );
+		
+		//Return to the previous directory
+		chdir( $current_dir );
+	}
 	
 	
 	/**
-	 * function insert_image
-	 * Insert the image tag for the given image.  Make sure it is present first.
-	 * @param string $texcode The TeX code
-	 * @param integer $post_id The Post ID
-	 * @param integer $commend_id The Comment ID if a comment
-	 * @return string The html image tag
+	 * function error_format
+	 * Formats the texcode if it is not renderable
+	 * @param string $texcode The LaTeX code
+	 * @return string The formatted html
 	*/
-	private function insert_image( $texcode, $post_id, $comment_id = null, $texcontainer = '%s', $outputcontainer = '%s' )
+	private function error_format( $texcode )
 	{
-		$texcode = sprintf( $texcontainer, $texcode );
-		$group = 'jLaTeX-' . $post_id;
-		$name = $comment_id . '-' . md5($texcode);
-		
-		//If the image is not in cache, render it
-		if ( !RenderCache::has( array( $group, $name ) ) ) {
-			if ( $this->render_image( $texcode, $post_id, $comment_id ) === false ) {
-				return $this->error_format( $texcode );
-			}
-		}
-				
-		//Get the url of the image
-		$file_url = RenderCache::get_url( array( $group, $name ) );
-		
-		//Return the image tag
-		return sprintf( $outputcontainer, "<img src=\"$file_url\" alt=\"" . trim($texcode) . "\" class=\"jLaTeX\">" );
+		return '<span style="background-color: white; color: red; font-weight: bold;">' . trim( $texcode ) . '</span>';
 	}
 	
 
@@ -204,53 +230,14 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	
 
 	/**
-	 * function set_priorities
-	 * Sets priorities of various actions and filters so they don't interfere with one another. (default priority is 8)
-	 */
-	function set_priorities()
-	{
-		return array
-		(
-			//Make this happen after the excerpt filter so images don't get stripped
-			'filter_post_content_excerpt' => 9,
-			//And push these back for good measure
-			'filter_post_content_out' => 9,
-			'filter_comment_content_out' => 9,
-		);
-	}
-	
-	
-	/**
 	 * function filter_post_content
 	 * Search for the LaTeX code so the tags can be replaced by images
 	*/
 	public function filter_post_content_out( $content, $post )
 	{
-	/*
-		XXX: For content-type stuff.  Remove this.
-		if ( preg_match( "/^\#\!latex[\n\r]/i", (string)$content ) )
-		{
-			return 'This is a LaTeX document.';
-		}
-	*/
-		
-		$this->passthrough_callback = 'insert_image';
 		$this->passthrough_args = array( $post->id, null );
 		
-		//Replace for each definition
-		foreach ( $this->dict as $record )
-		{
-
-			//Send additional data from the dictionary to the function.
-			$this->passthrough_args['texcontainer'] = $record[1];
-			$this->passthrough_args['outputcontainer'] = $record[2];
-			
-			$content = preg_replace_callback ( '#' . $record[0] . '#si', array( $this, 'passthrough' ), $content );
-		}
-		
-		return $content;
-		
-		//return preg_replace_callback ( '#\\\\\((.*?)\\\\\)#si', array( $this, 'passthrough' ), $content );
+		return $this->replace_tags ( $content );
 	}
 	
 	
@@ -276,50 +263,18 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	
 
 	/**
-	 * function action_post_delete_before
-	 * When a post is deleted, delete all images for that post and its comments.
-	*/
-	public function action_post_delete_before( $post )
-	{
-		//Delete all images for the deleted post including images in comments
-		$group = 'jLaTeX-' . $post->id;
-		$name = '*';
-		RenderCache::expire( array( $group, $name ), 'glob' );
-	}
-
-	
-	/**
 	 * function filter_comment_content_out
 	 * When a comment is displayed, search for tex.
 	 * @return string $content
 	*/
 	public function filter_comment_content_out( $content, $comment )
 	{
-		$this->passthrough_callback = 'insert_image';
 		$this->passthrough_args = array( $comment->post_id, $comment->id );
 		
-		//return preg_replace_callback ( '#\\\\\((.*?)\\\\\)#si', array( $this, 'passthrough' ), $content );
+		return $this->replace_tags ( $content );
 	}
 	
-	
-	public function action_comment_delete_after( $comment )
-	{
-		//Delete all images for the deleted comment
-		$group = 'jLaTeX-' . $comment->post_id;
-		$name = $comment->id . '-*';
-		RenderCache::expire( array( $group, $name ), 'glob' );
 
-	}
-	
-	public function action_comment_update_after( $comment )
-	{
-		//Delete all images for the comment
-		self::action_comment_delete_after( $comment );
-		
-		//Render the images for the comment
-		self::filter_comment_content_out( $comment->content, $comment );
-	}
-	
 	public function action_post_update_after( $post )
 	{
 		//Delete all images for the post (don't delete comment images)
@@ -332,6 +287,42 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	}
 	
 	
+	public function action_comment_update_after( $comment )
+	{
+		//Delete all images for the comment
+		self::action_comment_delete_after( $comment );
+		
+		//Render the images for the comment
+		self::filter_comment_content_out( $comment->content, $comment );
+	}
+	
+
+	/**
+	 * function action_post_delete_before
+	 * When a post is deleted, delete all images for that post and its comments.
+	*/
+	public function action_post_delete_before( $post )
+	{
+		//Delete all images for the deleted post including images in comments
+		$group = 'jLaTeX-' . $post->id;
+		$name = '*';
+		RenderCache::expire( array( $group, $name ), 'glob' );
+	}
+	
+
+	/**
+	 * function action_comment_delete_after
+	 * When a comment is deleted, delete all images for that comments.
+	*/
+	public function action_comment_delete_after( $comment )
+	{
+		//Delete all images for the deleted comment
+		$group = 'jLaTeX-' . $comment->post_id;
+		$name = $comment->id . '-*';
+		RenderCache::expire( array( $group, $name ), 'glob' );
+	}
+	
+	
 	/*
 	 * function action_init_theme
 	 * Called when the theme is initialized
@@ -339,7 +330,24 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	public function action_init_theme()
 	{
 		//Add the stylesheet for LaTeX images and such
-		Stack::add('template_stylesheet', array( URL::get_from_filesystem(__FILE__) . '/latex.css', 'screen', 'screen' ), 'cssfilename');
+		Stack::add('template_stylesheet', array( URL::get_from_filesystem(__FILE__) . '/latex.css', 'screen', 'screen' ), 'jLaTeX-css');
+	}
+	
+
+	/**
+	 * function set_priorities
+	 * Sets priorities of various actions and filters so they don't interfere with one another. (default priority is 8)
+	 */
+	function set_priorities()
+	{
+		return array
+		(
+			//Make this happen after the excerpt filter so images don't get stripped
+			'filter_post_content_excerpt' => 9,
+			//And push these back for good measure
+			'filter_post_content_out' => 9,
+			'filter_comment_content_out' => 9,
+		);
 	}
 	
 	
@@ -448,14 +456,13 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	 * function passthrough
 	 * Allows us to pass arguments through preg_replace_callback.  Calls a second layer callback function $this->preg_callback with additional arguments $this->passthrough_args.
 	*/
-	protected $passthrough_callback = null;
 	protected $passthrough_args = null;
 	public function passthrough( $match )
 	{
 		$args = $this->passthrough_args;
 		array_unshift( $args, $match[1] );
 		
-		return call_user_func_array( array( $this , $this->passthrough_callback ), $args );
+		return call_user_func_array( array( $this , 'insert_image' ), $args );
 	}
 }
 
