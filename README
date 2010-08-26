@@ -1,0 +1,17 @@
+LaTeX Jay
+A plugin for Habari (http://www.habariproject.org) which renders LaTeX in posts and comments using local tools.
+
+*** The RenderCache class is required for this plugin to work.  It can currently be found at http://github.com/justinjstark/rendercache. ***
+
+Requirements:
+	@ The following tools must be installed on the server:
+		@ latex
+		@ dvips
+		@ convert
+	@ The RenderCache class must be installed in user/classes/.
+
+To install:
+	(1) Make sure rendercache is in user/classes/
+	(2) Drop the plugin files into user/plugins/latexjay/
+	(3) Activate the plugin in the Habari admin and configure 
+	(4) Enjoy!
