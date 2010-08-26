@@ -1,14 +1,16 @@
 <?php
+
+
 /*
 	TODO:
-		@ Strip out potentially malicious LaTeX commands. (This definitely needs implemented before any sort of post-alpha release.)
-		@ Make a preview comment plugin
+		@ There is currently support for blacklisting commands. We either need a thorough list of commands to disallow or we need to incorporate a whitelist of commands to allow.
 */
 
 
 class jLaTeX extends Plugin		// Extends the core Plugin class
 {
 
+	//The dictionary of LaTeX tag styles and how to apply each
 	private $dict = array (
 	//array ( inputcontainer, texcontainer, outputcontainer ),
 	//array ( '\$$(.*?)\$$', '<div style="text-align:center">%s</div>' )
@@ -18,23 +20,35 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		array ( '\[ctex\](.*?)\[\/ctex\]', '%s', '<div class="centered">%s</div>' ),
 	);
 	
-
+	//The following is a whitelist from drutex
+  //$D['drutex_security_allowedcommands'] = '\atop \binom \cdot \cfrac \choose \frac \int \ln \over \sum \to';
+  //$D['drutex_security_allowedenvironments'] = 'align array equation equations gather matrix split';
+  //\dfrac \displaystyle \lim \emptyset ...
+	
+	
+	//Blacklisted LaTeX commands.  These should be regex patterns to be stripped.
+	private $blacklist = array (
+		"\\\\include",
+	);
+	
+	//"\\include", "\\def", "command", "loop", "repeat", "open", "toks", "output", "input", "catcode", "name", "^^", "\\every", "\\errhelp", "\\errorstopmode", "\\scrollmode", "\\nonstopmode", "\\batchmode", "\\read", "\\write", "csname", "\\newhelp", "\\uppercase", "\\lowercase", "\\relax", "\\aftergroup", "\\afterassignment", "\\expandafter", "\\noexpand", "\\special"
+	
+	
 	/**
 	 * function action_plugin_activation
 	 * Adds the configuration options
 	*/
 	public function action_plugin_activation( $file )
 	{
-		//Set the default options
 		if ( realpath( $file ) == __FILE__ )
 		{
+			//Set the default options
 			Options::set( 'jLaTeX__latex', '/usr/bin/latex' );
-			Options::set( 'jLaTeX__dvips', '/usr/bin/dvips' );
-			Options::set( 'jLaTeX__convert', '/usr/bin/convert' );
-			Options::set( 'jLaTeX__tmp_path', '/tmp/' );
+			Options::set( 'jLaTeX__dvipng', '/usr/bin/dvipng' );
+			Options::set( 'jLaTeX__tmp', '/tmp/' );
 			Options::set( 'jLaTeX__imagedpi', '120' );
 			Options::set( 'jLaTeX__imagewidth', '557' );
-			Options::set( 'jLaTeX__verbose_errors', false );
+			Options::set( 'jLaTeX__incomments', true );
 			
 			//Default to a simple template
 			$template  = "\\documentclass[12pt]{article}\n";
@@ -103,7 +117,10 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	*/
 	private function insert_image( $texcode, $post_id, $comment_id = null, $texcontainer = '%s', $outputcontainer = '%s' )
 	{
+		//Set the LaTeX code in its container
 		$texcode = sprintf( $texcontainer, $texcode );
+		
+		//Set the group and name for RenderCache
 		$group = 'jLaTeX';
 		$name = $post_id . '-' . $comment_id . '-' . md5($texcode);
 		
@@ -132,10 +149,17 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	*/
 	private function render_image( $texcode, $post_id, $comment_id = null )
 	{
+		//Strip blacklisted elements
+		foreach ( $this->blacklist as $black )
+		{
+			$texcode = preg_replace ( '/' . $black . '/si', '', $texcode );
+		}
+	
 		//Set this so it can be referenced in case of an error
+		//XXX
 		$this->error_texcode = rtrim( $texcode, '/' ) . '/';
 		
-		$tmp = Options::get( 'jLaTeX__tmp_path' );
+		$tmp = Options::get( 'jLaTeX__tmp' );
 		
 		//Make sure the tmp directory exists
 		if ( !is_dir( $tmp ) ) {
@@ -161,17 +185,12 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 			return false;
 		}
 		
-		//Convert dvi file to postscript using dvips
-		$command = Options::get( 'jLaTeX__dvips' ) . ' ' . $filename . '.dvi -o ' . $filename . '.ps';
+		//Convert dvi file to png using dvipng
+		$command = Options::get( 'jLaTeX__dvipng' ) . ' ' . $filename . '.dvi -D ' . Options::get( 'jLaTeX__imagedpi' ) . ' -T tight -o ' . $filename . '.png';
 		if ( $this->do_command( $command, $tmp ) === false ) {
 			return false;
 		}
 		
-		//Convert the ps file to an image and trim the excess
-		$command = Options::get( 'jLaTeX__convert' ) . ' -density ' . Options::get( 'jLaTeX__imagedpi' ) . ' -trim ' . $filename . '.ps ' . $filename . '.png';
-		if ( $this->do_command( $command, $tmp ) === false ) {
-			return false;
-		}
 		
 		//Store the file in cache
 		$file = $tmp . $filename . '.png';
@@ -265,6 +284,11 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	*/
 	public function filter_comment_content_out( $content, $comment )
 	{
+		if ( ! Options::get ( 'jLaTeX__incomments' ) )
+		{
+			return $content;
+		}
+	
 		$this->passthrough_args = array( $comment->post_id, $comment->id );
 		
 		return $this->replace_tags ( $content );
@@ -291,10 +315,10 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	 * function action_comment_update_before
 	 * When a comment is updated
 	*/
-	public function action_comment_update_after( $comment, $post )
+	public function action_comment_update_after( $comment )
 	{
 		//Delete all images for the comment
-		self::action_comment_delete_after( $comment, $post );
+		self::action_comment_delete_after( $comment );
 		
 		//Render the images for the comment
 		self::filter_comment_content_out( $comment->content, $comment );
@@ -392,12 +416,11 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 					
 					$executables_fieldset = $ui->append( 'fieldset', 'executables', _t( 'Executables' ) );
 						$executables_fieldset->append( 'text', 'latex', 'option:jLaTeX__latex', _t( 'LaTeX' ) );
-						$executables_fieldset->append( 'text', 'dvips', 'option:jLaTeX__dvips', _t( 'DVIPS' ) );
-						$executables_fieldset->append( 'text', 'convert', 'option:jLaTeX__convert', _t( 'Convert' ) );
-						$executables_fieldset->append( 'text', 'tmp_path', 'option:jLaTeX__tmp_path', _t( 'Temporary Directory' ) );
+						$executables_fieldset->append( 'text', 'dvipng', 'option:jLaTeX__dvipng', _t( 'DVIPNG' ) );
+						$executables_fieldset->append( 'text', 'tmp_path', 'option:jLaTeX__tmp', _t( 'Temporary Directory' ) );
 					
 					$latexsettings_fieldset = $ui->append( 'fieldset', 'latexsettings', _t( 'LaTeX Settings' ) );
-						$latexsettings_fieldset->append( 'static', 'latextemplate_static', _t( 'You can place anything you want in the following template.  %formula% gets replaced by the LaTeX code you enter between appropriate tags in posts and comments.' ) );
+						$latexsettings_fieldset->append( 'static', 'latextemplate_static', _t( 'You can place anything you want in the following template.  %s% gets replaced by the LaTeX code you enter between appropriate tags in posts and comments.' ) );
 						$latextemplate = $latexsettings_fieldset->append( 'textarea', 'latextemplate', 'option:jLaTeX__template', _t( 'Template' ) );
 						$latextextwidth = $latexsettings_fieldset->append( 'text', 'textwidth', 'option:jLaTeX_textwidth', _t( 'Text Width (in inches)' ) );
 
@@ -406,9 +429,8 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 						$imagesettings_fieldset->append( 'text', 'imagewidth', 'option:jLaTeX__imagewidth', _t( 'Maximum Image Width (in pixels)' ) );
 						$imagesettings_fieldset->append( 'static', 'imagewidth_static', _t( 'jLaTeX will calculate the maximum image width in inches and automatically set the LaTeX document text-width to this value. This way the text is not wider than the container width.' ) );
 						
-					$errorsettings_fieldset = $ui->append( 'fieldset', 'errorsettings', _t( 'Error Settings' ) );
-						$errorsettings_fieldset->append( 'static', 'verboseerrors_static', _t( 'When Verbose Errors is checked and an error is encountered during rendering, an exhaustive error message is supplied.  When Verbose Errors is unchecked and a rendering error occurs, the LaTeX code is printed in red and no error message is given.  The prior is good for debugging rendering issues and testing templates while the latter better in general usage.' ) );
-						$errorsettings_fieldset->append( 'checkbox', 'verbose_errors', 'option:jLaTeX__verbose_errors', _t( 'Verbose Errors' ) );			
+					$othersettings_fieldset = $ui->append( 'fieldset', 'othersettings', _t( 'Other Settings' ) );
+						$othersettings_fieldset->append( 'checkbox', 'incomments', 'option:jLaTeX__incomments', _t( 'Render LaTeX in comments' ) );
 										
 					$ui->append( 'submit', 'save', 'Save' );
 					

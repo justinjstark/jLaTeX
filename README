@@ -6,8 +6,7 @@ A plugin for Habari (http://www.habariproject.org) which renders LaTeX in posts 
 Requirements:
 	@ The following tools must be installed on the server:
 		@ latex
-		@ dvips
-		@ convert
+		@ dvipng
 	@ The RenderCache class must be installed in user/classes/.
 
 To install:

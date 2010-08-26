@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <pluggable type="plugin">
 	<name>jLaTeX</name>
-	<version>0.3a</version>
+	<version>0.9</version>
 	<url>http://www.justinjstark.com/</url>
 	<author url="http://www.justinjstark.com">Justin J Stark</author>
 	<license url=""></license>
