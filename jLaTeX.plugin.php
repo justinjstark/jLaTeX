@@ -2,19 +2,15 @@
 /*
 	TODO:
 		@ Strip out potentially malicious LaTeX commands. (This definitely needs implemented before any sort of post-alpha release.)
-		@ 
 		@ Make a preview comment plugin
 */
 
-include_once( dirname(__FILE__) . '/latex.dict.php' );
 
 class jLaTeX extends Plugin		// Extends the core Plugin class
 {
 
-	//TODO: Put this in a separate file.
-	//XXX: $CENTERED = '<div style="text-align:center">%s</div>';
 	private $dict = array (
-	//array ( inputcontainer, texcoontainer, outputcontainer (optional) ),
+	//array ( inputcontainer, texcontainer, outputcontainer ),
 	//array ( '\$$(.*?)\$$', '<div style="text-align:center">%s</div>' )
 		array ( '\\\\\((.*?)\\\\\)', '\(%s\)', '%s' ),
 		array ( '\\\\\[(.*?)\\\\\]', '\[%s\]', '<div class="centered">%s</div>' ),
@@ -108,8 +104,8 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	private function insert_image( $texcode, $post_id, $comment_id = null, $texcontainer = '%s', $outputcontainer = '%s' )
 	{
 		$texcode = sprintf( $texcontainer, $texcode );
-		$group = 'jLaTeX-' . $post_id;
-		$name = $comment_id . '-' . md5($texcode);
+		$group = 'jLaTeX';
+		$name = $post_id . '-' . $comment_id . '-' . md5($texcode);
 		
 		//If the image is not in cache, render it
 		if ( !RenderCache::has( array( $group, $name ) ) ) {
@@ -179,8 +175,8 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		
 		//Store the file in cache
 		$file = $tmp . $filename . '.png';
-		$group = 'jLaTeX-' . $post_id;
-		$name = $comment_id . '-' . md5($texcode);
+		$group = 'jLaTeX';
+		$name = $post_id . '-' . $comment_id . '-' . md5($texcode);
 		RenderCache::put( array( $group, $name ), $file, 60*60*24*7, true );
 	}
 
@@ -264,7 +260,7 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 
 	/**
 	 * function filter_comment_content_out
-	 * When a comment is displayed, search for tex.
+	 * When a comment is displayed
 	 * @return string $content
 	*/
 	public function filter_comment_content_out( $content, $comment )
@@ -275,11 +271,15 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	}
 	
 
+	/**
+	 * function action_post_update_after
+	 * When a post is updated
+	*/
 	public function action_post_update_after( $post )
 	{
 		//Delete all images for the post (don't delete comment images)
-		$group = 'jLaTeX-' . $post->id;
-		$name = '/^-/';	//Search for - at the beginning of $name
+		$group = 'jLaTeX';
+		$name = '/--/';	//Search for names with --
 		RenderCache::expire( array( $group, $name ), 'regex' );
 		
 		//Render the images for the post
@@ -287,10 +287,14 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	}
 	
 	
-	public function action_comment_update_after( $comment )
+	/**
+	 * function action_comment_update_before
+	 * When a comment is updated
+	*/
+	public function action_comment_update_after( $comment, $post )
 	{
 		//Delete all images for the comment
-		self::action_comment_delete_after( $comment );
+		self::action_comment_delete_after( $comment, $post );
 		
 		//Render the images for the comment
 		self::filter_comment_content_out( $comment->content, $comment );
@@ -298,28 +302,28 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	
 
 	/**
-	 * function action_post_delete_before
-	 * When a post is deleted, delete all images for that post and its comments.
+	 * function action_post_delete_after
+	 * When a post is deleted
 	*/
-	public function action_post_delete_before( $post )
+	public function action_post_delete_after( $post )
 	{
 		//Delete all images for the deleted post including images in comments
-		$group = 'jLaTeX-' . $post->id;
-		$name = '*';
-		RenderCache::expire( array( $group, $name ), 'glob' );
+		$group = 'jLaTeX';
+		$name = '/^(' . $post->id . '-)/si';
+		RenderCache::expire( array( $group, $name ), 'regex' );
 	}
 	
 
 	/**
 	 * function action_comment_delete_after
-	 * When a comment is deleted, delete all images for that comments.
+	 * When a comment is deleted
 	*/
 	public function action_comment_delete_after( $comment )
 	{
 		//Delete all images for the deleted comment
-		$group = 'jLaTeX-' . $comment->post_id;
-		$name = $comment->id . '-*';
-		RenderCache::expire( array( $group, $name ), 'glob' );
+		$group = 'jLaTeX';
+		$name = '/^(' . $comment->post_id . '-' . $comment->id . '-)/si';
+		RenderCache::expire( array( $group, $name ), 'regex' );
 	}
 	
 	
@@ -429,15 +433,12 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	
 	public function clear_cache( $ui )
 	{
-		//TODO
-		//Expire all LaTeX images
+		Session::notice( _t( 'All rendered LaTeX images in the cache have been deleted.' ) );
 		
-		//Delete all images for the post (don't delete comment images)
-		//$group = 'jLaTeX-' . $post->id;
-		//$name = '/^-/';	//Search for - at the beginning of $name
-		//RenderCache::expire( array( $group, $name ), 'regex' );
-	
-		//Session::notice( _t( 'All rendered LaTeX images in the cache have been deleted.' ) );
+		//Expire all cached images
+		$group = 'jLaTeX';
+		$name = '*';
+		RenderCache::expire( array( $group, $name ), 'glob' );
 		
 		return false;
 	}
