@@ -13,7 +13,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	//The dictionary of LaTeX tag styles and how to apply each
 	private $dict = array (
 	//array ( inputcontainer, texcontainer, outputcontainer ),
-	//array ( '\$$(.*?)\$$', '<div style="text-align:center">%s</div>' )
 		array ( '\\\\\((.*?)\\\\\)', '\(%s\)', '%s' ),
 		array ( '\\\\\[(.*?)\\\\\]', '\[%s\]', '<div class="centered">%s</div>' ),
 		array ( '\[tex\](.*?)\[\/tex\]', '%s', '%s' ),
@@ -48,7 +47,7 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 			Options::set( 'jLaTeX__tmp', '/tmp/' );
 			Options::set( 'jLaTeX__imagedpi', '120' );
 			Options::set( 'jLaTeX__imagewidth', '557' );
-			Options::set( 'jLaTeX__incomments', true );
+			Options::set( 'jLaTeX__incomments', false );
 			
 			//Default to a simple template
 			$template  = "\\documentclass[12pt]{article}\n";
@@ -162,7 +161,8 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		$tmp = Options::get( 'jLaTeX__tmp' );
 		
 		//Make sure the tmp directory exists
-		if ( !is_dir( $tmp ) ) {
+		if ( !is_dir( $tmp ) )
+		{
 			mkdir( $tmp, 0755, true );
 			//TODO: ERROR
 		}
@@ -181,13 +181,15 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		
 		//Create the temprorary DVI file
 		$command = Options::get( 'jLaTeX__latex' ) . ' --interaction=nonstopmode ' . $filename . '.tex';
-		if ( $this->do_command( $command, $tmp ) === false ) {
+		if ( $this->do_command( $command, $tmp ) === false )
+		{
 			return false;
 		}
 		
 		//Convert dvi file to png using dvipng
-		$command = Options::get( 'jLaTeX__dvipng' ) . ' ' . $filename . '.dvi -D ' . Options::get( 'jLaTeX__imagedpi' ) . ' -T tight -o ' . $filename . '.png';
-		if ( $this->do_command( $command, $tmp ) === false ) {
+		$command = Options::get( 'jLaTeX__dvipng' ) . ' ' . $filename . '.dvi -pp 1 -D ' . Options::get( 'jLaTeX__imagedpi' ) . ' -T tight -o ' . $filename . '.png';
+		if ( $this->do_command( $command, $tmp ) === false )
+		{
 			return false;
 		}
 		
