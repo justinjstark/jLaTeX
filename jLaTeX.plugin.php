@@ -1,37 +1,14 @@
 <?php
 
-
-/*
-	TODO:
-		@ There is currently support for blacklisting commands. We either need a thorough list of commands to disallow or we need to incorporate a whitelist of commands to allow.
-*/
-
-
-class jLaTeX extends Plugin		// Extends the core Plugin class
+class jLaTeX extends Plugin
 {
-
 	//The dictionary of LaTeX tag styles and how to apply each
 	private $dict = array (
-	//array ( inputcontainer, texcontainer, outputcontainer ),
 		array ( '\\\\\((.*?)\\\\\)', '\(%s\)', '%s' ),
 		array ( '\\\\\[(.*?)\\\\\]', '\[%s\]', '<div class="centered">%s</div>' ),
 		array ( '\[tex\](.*?)\[\/tex\]', '%s', '%s' ),
 		array ( '\[ctex\](.*?)\[\/ctex\]', '%s', '<div class="centered">%s</div>' ),
 	);
-	
-	//The following is a whitelist from drutex
-  //$D['drutex_security_allowedcommands'] = '\atop \binom \cdot \cfrac \choose \frac \int \ln \over \sum \to';
-  //$D['drutex_security_allowedenvironments'] = 'align array equation equations gather matrix split';
-  //\dfrac \displaystyle \lim \emptyset ...
-	
-	
-	//Blacklisted LaTeX commands.  These should be regex patterns to be stripped.
-	private $blacklist = array (
-		"\\\\include",
-	);
-	
-	//"\\include", "\\def", "command", "loop", "repeat", "open", "toks", "output", "input", "catcode", "name", "^^", "\\every", "\\errhelp", "\\errorstopmode", "\\scrollmode", "\\nonstopmode", "\\batchmode", "\\read", "\\write", "csname", "\\newhelp", "\\uppercase", "\\lowercase", "\\relax", "\\aftergroup", "\\afterassignment", "\\expandafter", "\\noexpand", "\\special"
-	
 	
 	/**
 	 * function action_plugin_activation
@@ -63,7 +40,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		}
 	}
 	
-	
 	/**
 	 * function action_init
 	 * A function which makes sure we are good to go for plugin activation.
@@ -78,9 +54,7 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		}
 	}
 
-
 	/************************** LaTeX Stuff **************************/
-
 
 	/**
 	 * function replace_tags
@@ -104,7 +78,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		
 		return $content;
 	}
-	
 	
 	/**
 	 * function insert_image
@@ -137,7 +110,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		return sprintf( $outputcontainer, "<img src=\"$file_url\" alt=\"" . trim($texcode) . "\" class=\"jLaTeX\">" );
 	}
 	
-	
 	/**
 	 * function render_image
 	 * Create the image and place it in the proper place
@@ -148,12 +120,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	*/
 	private function render_image( $texcode, $post_id, $comment_id = null )
 	{
-		//Strip blacklisted elements
-		foreach ( $this->blacklist as $black )
-		{
-			$texcode = preg_replace ( '/' . $black . '/si', '', $texcode );
-		}
-	
 		//Set this so it can be referenced in case of an error
 		//XXX
 		$this->error_texcode = rtrim( $texcode, '/' ) . '/';
@@ -193,14 +159,12 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 			return false;
 		}
 		
-		
 		//Store the file in cache
 		$file = $tmp . $filename . '.png';
 		$group = 'jLaTeX';
 		$name = $post_id . '-' . $comment_id . '-' . md5($texcode);
 		RenderCache::put( array( $group, $name ), $file, 60*60*24*7, true );
 	}
-
 	
 	/**
 	 * function do_command
@@ -230,7 +194,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		chdir( $current_dir );
 	}
 	
-	
 	/**
 	 * function error_format
 	 * Formats the texcode if it is not renderable
@@ -241,11 +204,9 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	{
 		return '<span style="background-color: white; color: red; font-weight: bold;">' . trim( $texcode ) . '</span>';
 	}
-	
 
 	/************************** Actions & Filters **************************/
 	
-
 	/**
 	 * function filter_post_content
 	 * Search for the LaTeX code so the tags can be replaced by images
@@ -257,7 +218,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		return $this->replace_tags ( $content );
 	}
 	
-	
 	/**
 	 * function filter_post_title_out
 	 * Render LaTeX code in the title
@@ -266,7 +226,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 	{
 		return $this->filter_post_content_out( $title, $post );
 	}
-	
 	
 	/**
 	 * function filter_post_content_excerpt
@@ -278,7 +237,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		return $this->filter_post_content_out( $content, $post );
 	}
 	
-
 	/**
 	 * function filter_comment_content_out
 	 * When a comment is displayed
@@ -296,7 +254,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		return $this->replace_tags ( $content );
 	}
 	
-
 	/**
 	 * function action_post_update_after
 	 * When a post is updated
@@ -312,7 +269,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		self::filter_post_content_out( $post->content, $post );
 	}
 	
-	
 	/**
 	 * function action_comment_update_before
 	 * When a comment is updated
@@ -326,7 +282,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		self::filter_comment_content_out( $comment->content, $comment );
 	}
 	
-
 	/**
 	 * function action_post_delete_after
 	 * When a post is deleted
@@ -339,7 +294,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		RenderCache::expire( array( $group, $name ), 'regex' );
 	}
 	
-
 	/**
 	 * function action_comment_delete_after
 	 * When a comment is deleted
@@ -352,7 +306,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		RenderCache::expire( array( $group, $name ), 'regex' );
 	}
 	
-	
 	/*
 	 * function action_init_theme
 	 * Called when the theme is initialized
@@ -363,7 +316,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		Stack::add('template_stylesheet', array( URL::get_from_filesystem(__FILE__) . '/latex.css', 'screen', 'screen' ), 'jLaTeX-css');
 	}
 	
-
 	/**
 	 * function set_priorities
 	 * Sets priorities of various actions and filters so they don't interfere with one another. (default priority is 8)
@@ -380,10 +332,8 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		);
 	}
 	
-	
 	/************************** Admin Stuff **************************/
-
-
+	
 	public function filter_plugin_config( $actions, $plugin_id )
 	{
 		if ( $plugin_id == $this->plugin_id() ) {
@@ -392,7 +342,6 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		}
 		return $actions;
 	}
-	
 	
 	public function action_plugin_ui( $plugin_id, $action )
 	{
@@ -459,9 +408,7 @@ class jLaTeX extends Plugin		// Extends the core Plugin class
 		return false;
 	}
 	
-	
 	/************************** Miscellaneous **************************/
-	
 	
 	/**
 	 * function passthrough
