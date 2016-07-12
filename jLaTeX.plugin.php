@@ -120,8 +120,6 @@ class jLaTeX extends Plugin
 	*/
 	private function render_image( $texcode, $post_id, $comment_id = null )
 	{
-		//Set this so it can be referenced in case of an error
-		//XXX
 		$this->error_texcode = rtrim( $texcode, '/' ) . '/';
 		
 		$tmp = Options::get( 'jLaTeX__tmp' );
@@ -130,7 +128,6 @@ class jLaTeX extends Plugin
 		if ( !is_dir( $tmp ) )
 		{
 			mkdir( $tmp, 0755, true );
-			//TODO: ERROR
 		}
 		
 		$filename = md5( $texcode );
